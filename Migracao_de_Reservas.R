@@ -1,15 +1,19 @@
 # rm(list = ls())
 
-# library(tidyverse)
- #__________________________________
-
+library(tidyverse)
+#__________________________________
 
 # procura todos os anos, CICLO ----
+
+casos_especiais_MIGRACAO <- 
+  data.frame("processo" = NA, "Tipo de requerimento" = NA, "Fase atual" = NA, "cpfcnpj" = NA, 
+             "titular" = NA, "Municípios" = NA, "Substâncias" = NA, "Tipos de Uso" = NA, "Situação" = NA, 
+             "Unidade Protocolizadora" = NA, "Superintendência" = NA, "Área (ha)" = NA)
 
 for (ano in 2014:2018) {
   eventos <-
     as.list(c('processos_Bloqueio_ART42',
-        'processos_CADUC',
+        'ARQUIVAMENTO',
         'processos_Cessao_Total',
         'processos_Cessao_Parcial',
         'processos_desmembramento',
@@ -28,12 +32,10 @@ for (ano in 2014:2018) {
     eventos[j] <-
       xml2::read_html(x = caminho[[j]], encoding = "ANSI") %>%
       rvest::html_table()}
-    
-    
+
   
   # Não migrar
   processos_Bloqueio_ART42 <- data.frame(eventos[1])
-  processos_CADUC <- data.frame(eventos[2])
   processos_RRR <- data.frame(eventos[7])
   # antes de migrar fazer importação RPA (RRR): o sys alertará sobre existência prévia de reserva RRR
   
@@ -42,113 +44,52 @@ for (ano in 2014:2018) {
   processos_Cessao_Parcial <- data.frame(eventos[4])
   processos_desmembramento <- data.frame(eventos[5])
   processos_INCORPORACAO <- data.frame(eventos[6])
+  ARQUIVAMENTO <- data.frame(eventos[2])
   
-  Nao_Migrar <-
+  df_aux <-
     bind_rows(
-      processos_Bloqueio_ART42,
-      processos_CADUC,
-      processos_RRR)
+      list(
+        processos_Bloqueio_ART42 = processos_Bloqueio_ART42,
+        ARQUIVAMENTO = ARQUIVAMENTO,
+        processos_RRR = processos_RRR,
+        processos_Cessao_Parcial = processos_Cessao_Parcial,
+        processos_Cessao_Total = processos_Cessao_Total,
+        processos_desmembramento = processos_desmembramento,
+        processos_INCORPORACAO = processos_INCORPORACAO
+      ),
+      .id = "evento")
   
-  alteracao_titular <- 
-    bind_rows(processos_Cessao_Parcial,
-              processos_Cessao_Total,
-              processos_desmembramento,
-              processos_INCORPORACAO)
+  colnames(df_aux)[2:13] <- c("processo", "Tipo.de.requerimento", "Fase.atual", "cpfcnpj", 
+                                    "titular", "Municípios", "Substâncias", "Tipos.de.Uso", "Situação", 
+                                    "Unidade.Protocolizadora", "Superintendência", "Área..ha.")
   
-
   
-  write.table(
-    x = Nao_Migrar$X1,
-    file = paste("./Nao_migrar/Nao_Migrar_", ano, ".csv", sep = ""),
-    sep = ";",
-    row.names = FALSE,
-    quote = FALSE)
+  df_aux$ano <- ano
   
-  write.table(
-    x = alteracao_titular$X1,
-    file = paste("./Nao_migrar/alteracao_titular_", ano, ".csv", sep = ""),
-    sep = ";",
-    row.names = FALSE,
-    quote = FALSE
-  )}
+  casos_especiais_MIGRACAO <- bind_rows(casos_especiais_MIGRACAO, df_aux)
+            }
 
+casos_especiais_MIGRACAO <-
+  casos_especiais_MIGRACAO[is.na(casos_especiais_MIGRACAO$processo) == FALSE &
+                             casos_especiais_MIGRACAO$processo != "Processo", ]
 
+casos_especiais_MIGRACAO$Substâncias <-
+  casos_especiais_MIGRACAO[, "Substâncias"] %>% stringr::str_squish()
 
+#______gravação
 
-# BUSCA INDIVIDUAL----
+write.table(
+  x = casos_especiais_MIGRACAO[,c('processo',"evento","ano")],
+  file = paste("./NAO_MIGRAR/casos_especiais_MIGRACAO_TODOS", ".csv", sep = ""),
+  sep = ";",
+  row.names = FALSE,
+  quote = FALSE)
 
-ano <- 2017
-eventos <-
-  as.list(c('processos_Bloqueio_ART42','processos_CADUC','processos_Cessao_Total',
-            'processos_Cessao_Parcial','processos_desmembramento','processos_INCORPORACAO',
-            'processos_RRR'))
+# BUSCA processos_CADUC_ReqLav ----
 
-
-
-processos_Bloqueio_ART42 <-
+processos_CADUC_ReqLav <-
   data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[1], ".xls", sep = ""),
+    paste("./Migração_de_Reservas/Eventos_", ANO, "/", "processos_CADUC_ReqLav", ".xls", sep = ""),
     encoding = "ANSI")))
-  
-processos_CADUC <-
-  data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[2], ".xls", sep = ""),
-    encoding = "ANSI")))
-
-processos_RRR <-
-  data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[7], ".xls", sep = ""),
-    encoding = "ANSI")))
-
-
-
-# antes de migrar fazer importação RPA (RRR): o sys alertará sobre existência prévia de reserva RRR
-
-# alteração de títular
-processos_Cessao_Total <-
-  data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[3], ".xls", sep = ""),
-    encoding = "ANSI")))
-
-processos_Cessao_Parcial <-
-  data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[4], ".xls", sep = ""),
-    encoding = "ANSI")))
-
-processos_desmembramento <-
-  data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[5], ".xls", sep = ""),
-    encoding = "ANSI")))
-
-processos_INCORPORACAO <-
-  data.frame(rvest::html_table(xml2::read_html(
-    paste("./Eventos_", ano, "/", eventos[6], ".xls", sep = ""),
-    encoding = "ANSI")))
-
-
-
-
-
-#____________________________________________
-
-# lista de processos disponíveois para migrar todos os anos
-
-
-
-Listagem_Processos_Migrar_todosANOS <- 
-  read.table("Listagem_Processos_Migrar_todosANOS.csv", encoding = "ANSI", 
-             sep = ";", header = FALSE, fill = TRUE, quote = "")
-
-
-
-listagem_2015 <- 
-  Listagem_Processos_Migrar_todosANOS[Listagem_Processos_Migrar_todosANOS$V2=='2015',]$V3 %>% unique() 
-
-
-
-anti_join(data.frame(listagem_2015), 
-          data.frame(Nao_Migrar_eventos2015), 
-          by = c("listagem_2015" = "Nao_Migrar_eventos2015"))
-
 
 

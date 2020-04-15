@@ -89,7 +89,7 @@ write.table(
 
 processos_CADUC_ReqLav <-
   data.frame(rvest::html_table(xml2::read_html(
-    paste("./Migração_de_Reservas/Eventos_", ANO, "/", "processos_CADUC_ReqLav", ".xls", sep = ""),
+    paste("./Eventos_", ano, "/", "processos_CADUC_ReqLav", ".xls", sep = ""),
     encoding = "ANSI")))
 
 
